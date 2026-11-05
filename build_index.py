@@ -258,6 +258,7 @@ def build_plugin(name, installed_version, doc):
 
 def main():
     plugins = installed_plugins()
+    today = datetime.now().astimezone().strftime("%Y-%m-%d")
     entries = []
     missing = []
     local = []
@@ -312,7 +313,8 @@ def main():
         "每一个都是我自己装了、留在 profile 里的；哪天卸了，这里就跟着删。\n"
     )
     lines.append(
-        "可以直接当作 DSH 的索引源用：**插件 → 发现 → 索引源**，填\n"
+        "版本列是 npm 上当前的 latest 版本；`index.json` 带完整版本历史，"
+        "可以直接当索引源用：**插件 → 发现 → 索引源**，填\n"
         "`https://raw.githubusercontent.com/sfy2022/dsh-plugins/main/index.json`，"
         "按名称搜、一键装。\n"
     )
@@ -324,11 +326,11 @@ def main():
             continue
         zh, en = CATEGORIES[cid]
         lines.append(f"### {zh} · {en}\n")
-        lines.append("| 插件 | 装的版本 | 一句话 | 仓库 |")
+        lines.append("| 插件 | 最新版本 | 一句话 | 仓库 |")
         lines.append("|---|---|---|---|")
         for entry in group:
             name = entry["name"]
-            ver = installed.get(name, "?")
+            ver = latest_versions.get(name) or installed.get(name, "?")
             desc = entry["description"]["zh"]
             repo = (entry.get("repository") or {}).get("url", "")
             repo_cell = f"[{repo.split('github.com/')[-1]}]({repo})" if repo else "—"
@@ -345,42 +347,31 @@ def main():
             )
         lines.append("")
 
-    updates = [
+    behind = [
         (name, installed.get(name), latest_versions[name])
         for name in installed
         if name in latest_versions
         and latest_versions[name]
         and installed.get(name) != latest_versions[name]
     ]
-    lines.append("## 更新提示\n")
-    if updates:
-        lines.append("下面这些有新版本（记录的是这台机器当前装的版本）：\n")
-        lines.append("| 插件 | 当前 | 最新 |")
-        lines.append("|---|---|---|")
-        for name, cur, latest in sorted(updates):
-            lines.append(f"| `{name}` | {cur} | {latest} |")
-        lines.append("")
-        lines.append("升级命令（以 web profile 为例）：\n")
-        lines.append("```sh")
-        lines.append("dsh plugin --profile web add <包名>@latest")
-        lines.append("```\n")
-    else:
-        lines.append("全部已是最新。\n")
 
-    lines.append("## 按包名装\n")
+    lines.append("## 怎么装 / 怎么升级\n")
     lines.append("```sh")
-    lines.append("dsh plugin --profile web add dsh-design-studio     # 任意一个包名")
+    lines.append("dsh plugin --profile web add <包名>@latest        # 装，或升到最新")
+    lines.append("dsh plugin --profile web add dsh-design-studio     # 例子")
     lines.append("```\n")
     lines.append(
-        "或者在 DSH 里 **插件 → 添加插件** 填包名；装完重启 Web profile 生效。\n"
+        "也可以在 DSH 里 **插件 → 添加插件** 填包名；装完重启 Web profile 生效。\n"
     )
+
     lines.append("## 数据\n")
     lines.append(
         "- [`index.json`](./index.json) 是 [plugin market index format 1]"
         "(https://github.com/deepseek-ai/deepseek-harness) 格式：`format: 1`，"
         "每个插件带分类、中英双语描述、仓库地址和按时间倒序的版本历史。\n"
-        "- 版本历史取自 npm registry，最多保留每个插件最近 "
-        f"{VERSION_HISTORY_LIMIT} 个版本。\n"
+        f"- 版本列取自 npm 的 latest 标签，数据更新于 {today}；`index.json` "
+        "里也含 next 等其它通道的版本，每个插件最多保留最近 "
+        f"{VERSION_HISTORY_LIMIT} 个。\n"
         "- 这份名单是脚本从已装环境生成的，`build_index.py` 一起放在仓库里，"
         "换机器或装完新插件重跑一次即可。\n"
     )
@@ -393,8 +384,8 @@ def main():
         print("local-only:", ", ".join(n for n, _, _ in local))
     if missing:
         print("unresolved:", ", ".join(missing))
-    if updates:
-        print("updates:", ", ".join(f"{n} {c}->{l}" for n, c, l in sorted(updates)))
+    if behind:
+        print("behind latest:", ", ".join(f"{n} {c}->{l}" for n, c, l in sorted(behind)))
 
 
 if __name__ == "__main__":
